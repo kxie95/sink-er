@@ -62,11 +62,28 @@ def update_sync_file(directory):
     if os.stat(sync_file).st_size > 0:
         with open(sync_file, "r+") as sync_f:
             data = json.load(sync_f)
+
             for f in files:
+                # Check if sync file contains info about the file
                 if f in data:
-                    print('FOUND YOU')
+                    latest_data = data[f][0][1]
+                    latest_file_data = get_mod_and_hash(rel_path(directory, f))
+                    # If latest hash is different, update sync file
+                    if not latest_data == latest_file_data[1]:
+                        data[f].insert(0, latest_file_data)
+
+                # File not recorded in sync, add new entry
                 else:
-                    write_json_to_file(f, update_file_history(f))
+                    f_history = make_entry_for_file(f, directory)
+                    data[f] = f_history
+
+            # Check for deleted files
+            for key in data:
+                latest_data = data[key][0][1]
+                print(latest_data)
+                if key not in files:
+                    if not latest_data == "deleted":
+                        data[key].insert(0, get_mod_deleted(rel_path(directory, f)))
 
     # Sync file is empty, check if there are files in dir to add.
     else:
@@ -112,6 +129,12 @@ def get_mod_and_hash(filename):
         time_and_hash.append(m.hexdigest())
 
     return time_and_hash
+
+def get_mod_deleted(filename):
+    """Returns array with last mod time at first index and deleted at second
+    index.
+    """
+    return [modification_timestamp(filename), "deleted"]
 
 def modification_timestamp(filename):
     """Get the last modified time in the format specified in the assignment."""
