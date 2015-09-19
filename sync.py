@@ -40,9 +40,8 @@ def sync_dirs(dir_one, dir_two):
     # write_json_to_file('file1_2.txt', [[12, 12],[33,33]], from_sync_file)
 
     # Update sync files for both folders
-    #update_sync_file(dir_one)
+    update_sync_file(dir_one)
     #update_sync_file(dir_two)
-    print(get_lastmodtime_and_hash("dir1/file1_1.txt"))
 
 def update_sync_file(directory):
     """Scans a given directory for files and updates its sync file."""
@@ -52,13 +51,16 @@ def update_sync_file(directory):
 
     # Create sync file if it doesn't exist
     sync_file = directory + "/.sync"
+    print(sync_file)
     if not os.path.isfile(sync_file):
         open(sync_file, "w+").close()
 
-    with open(sync_file, "r+") as sync_f:
+    # Data for putting into JSON file
+    data = None
 
-        # If sync file is not empty, there is data.
-        if os.stat(sync_file).st_size > 0:
+    # If sync file is not empty, there is data.
+    if os.stat(sync_file).st_size > 0:
+        with open(sync_file, "r+") as sync_f:
             data = json.load(sync_f)
             for f in files:
                 if f in data:
@@ -66,13 +68,27 @@ def update_sync_file(directory):
                 else:
                     write_json_to_file(f, update_file_history(f))
 
-        # Sync file is empty, check if there are files in dir to add.
-        else:
-            # If no files to add, nothing to update so return.
-            if not files:
-                return
-            for f in files:
-                write_json_to_file(f, value, sync_file)
+    # Sync file is empty, check if there are files in dir to add.
+    else:
+        # If no files to add, nothing to update so return.
+        if not files:
+            return
+
+        data = dict()
+
+        for f in files:
+            f_history = make_entry_for_file(f, directory)
+            data[f] = f_history
+
+    # Place data in json (sync) file
+    with open(sync_file, "r+") as f:
+        json.dump(data, f, indent=4, separators=(',', ': '))
+
+def rel_path(directory, filename):
+    """Get relative path for a file."""
+    rel_dir = os.path.relpath(directory)
+    print(os.path.join(rel_dir, filename))
+    return os.path.join(rel_dir, filename)
 
 def update_file_history(file_history_list):
     """Adds arrays to history list for a file."""
@@ -81,7 +97,7 @@ def update_file_history(file_history_list):
 #--------------------------------------
 # Modification time and hash functions
 #--------------------------------------
-def get_lastmodtime_and_hash(filename):
+def get_mod_and_hash(filename):
     """Gets the latest modification date and creates sha256 hash for file.
     Returns an array with time at the first index and hash at the second index.
     """
@@ -110,9 +126,12 @@ def get_files_in_dir(directory):
             files.append(f)
     return files
 
-def write_json_to_file(key, value, json_file):
-    """Writes a new key value pair to a json file."""
-    with open(json_file, "a+") as f:
-        json.dump({key: value}, f, indent=4, separators=(',', ': '))
+def make_entry_for_file(filename, directory):
+    """Makes a 2D array for a list of mod and hashes for a file."""
+    file_path = rel_path(directory, filename)
+    print(file_path)
+    file_history = []
+    file_history.append(get_mod_and_hash(file_path))
+    return file_history
 
 do_sync(sys.argv[1], sys.argv[2])
