@@ -3,45 +3,43 @@
 import sys
 import os
 import json
+import hashlib
 
 def do_sync(arg_one, arg_two):
     """Check arguments and take appropriate action."""
     arg_one_is_dir = os.path.isdir(arg_one)
     arg_two_is_dir = os.path.isdir(arg_two)
 
+    # Both arguments are invalid
     if not arg_one_is_dir and not arg_two_is_dir:
-        print('Both args not dir.')
+        print('Usage: sync directory1 directory2')
+
+    # Both arguments are valid
     elif arg_one_is_dir and arg_two_is_dir:
-        sync_dirs(arg_one, arg_two)  
+        sync_dirs(arg_one, arg_two)
+
+    # One argument is not a directory (create in sync_dirs)
     else:
         if arg_one_is_dir:
-            print('Arg1 is dir.')
+            # Arg one is directory
             sync_dirs(arg_one, arg_two)
         else:
-            print('Arg2 is dir')
+            # Arg two is directory
             sync_dirs(arg_two, arg_one)
 
-def sync_dirs(from_dir, to_dir):
+def sync_dirs(dir_one, dir_two):
     """Syncs from one directory to another directory."""
 
     # Make new directory if needed
-    if not os.path.isdir(to_dir):
-        os.makedirs(to_dir)
-        print('Made new dir: ' + to_dir)
+    if not os.path.isdir(dir_two):
+        os.makedirs(dir_two)
+        print('Made new dir: ' + dir_two)
 
-    # Check if directories contain sync files
-    from_sync_file = from_dir + "/.sync"
-    to_sync_file = from_dir + "/.sync"
+    # write_json_to_file('file1_2.txt', [[12, 12],[33,33]], from_sync_file)
 
-    #write_json_to_file('file1_2.txt', [[12, 12],[33,33]], from_sync_file)
-
-    files = get_files_in_dir(from_dir)
-    if not files:
-        print('list is empty')
-    for f in files:
-        print(f)
-
-    update_sync_file(from_dir)
+    # Update sync files for both folders
+    update_sync_file(dir_one)
+    update_sync_file(dir_two)
 
 def update_sync_file(directory):
     """Scans a given directory for files and updates its sync file."""
@@ -50,15 +48,26 @@ def update_sync_file(directory):
     files = get_files_in_dir(directory)
 
     sync_file = directory + "/.sync"
-    print(sync_file)
+    # Create sync file if it doesn't exist
+    if not os.path.isfile(sync_file):
+        open(sync_file, "w+").close()
 
-    # Load sync file
     with open(sync_file, "r+") as sync_f:
-        data = json.load(sync_f)
-        for f in files:
-            if f in data:
-                print('FOUND YOU')
-    return files
+        # If sync file is not empty, there is data.
+        if os.stat(sync_file).st_size > 0:
+            data = json.load(sync_f)
+            for f in files:
+                if f in data:
+                    print('FOUND YOU')
+                else:
+                    write_json_to_file(f, update_file_history(f))
+        # Sync file is empty, check if there are files in dir to add.
+        else:
+            print('Sync file is empty.')
+
+def update_file_history(file_history_list):
+    """Adds arrays to history list for a file."""
+    print('Update.')
 
 def get_files_in_dir(directory):
     """Gets files, excluding dirs, inside a given directory as a list."""
@@ -69,7 +78,7 @@ def get_files_in_dir(directory):
     return files
 
 def write_json_to_file(key, value, json_file):
-    """Writes a key value pair to a json file."""
+    """Writes a new key value pair to a json file."""
     with open(json_file, "a+") as f:
         json.dump({key: value}, f, indent=4, separators=(',', ': '))
 
