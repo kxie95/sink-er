@@ -6,6 +6,7 @@ import json
 import hashlib
 import datetime
 import time
+import shutil
 
 def do_sync(arg_one, arg_two):
     """Check arguments and take appropriate action."""
@@ -37,11 +38,41 @@ def sync_dirs(dir_one, dir_two):
         os.makedirs(dir_two)
         print('Made new dir: ' + dir_two)
 
-    # write_json_to_file('file1_2.txt', [[12, 12],[33,33]], from_sync_file)
-
     # Update sync files for both folders
     update_sync_file(dir_one)
-    #update_sync_file(dir_two)
+    update_sync_file(dir_two)
+
+    # Merge directories
+    merge_dirs(dir_one, dir_two)
+
+def merge_dirs(dir_one, dir_two):
+    dir_one_data = get_data_from_sync_file(dir_one + "/.sync")
+    dir_two_data = get_data_from_sync_file(dir_two + "/.sync")
+
+    for key in dir_one_data:
+        file_data = dir_one_data[key]
+        file_data_2 = dir_two_data[key]
+
+        # Latest modification times
+        mod_time = string_to_time(file_data[0][0])
+        mod_time_2 = string_to_time(file_data_2[0][0])
+
+        # TODO Same digest, different mod times
+        if file_data[0][1] == file_data_2[0][1]:
+            if not mod_time == mod_time_2:
+                if mod_time < mod_time_2:
+                    shutil.copyfile(dir_one+"/"+key, dir_two+"/"+key)
+                    update_sync_file(dir_two)
+                else:
+                    shutil.copyfile(dir_two+"/"+key, dir_one+"/"+key)
+                    update_sync_file(dir_one)
+
+        # Different digest
+        else:
+            if mod_time_1 < mod_time_2:
+                for x in range(file_data_2):
+                    if file_data_2[x][0] == file_data[0][0]:
+                        print('Replace old version with new')
 
 def update_sync_file(directory):
     """Scans a given directory for files and updates its sync file."""
@@ -107,10 +138,6 @@ def rel_path(directory, filename):
     print(os.path.join(rel_dir, filename))
     return os.path.join(rel_dir, filename)
 
-def update_file_history(file_history_list):
-    """Adds arrays to history list for a file."""
-    print('Update.')
-
 #--------------------------------------
 # Modification time and hash functions
 #--------------------------------------
@@ -141,6 +168,10 @@ def modification_timestamp(filename):
     last_mod_time = os.path.getmtime(filename)
     return time.strftime("%Y-%m-%d %H:%M:%S +1200", time.gmtime(last_mod_time))
 
+def string_to_time(string):
+    """Returns time object for a given string."""
+    return time.strptime(string, "%Y-%m-%d %H:%M:%S +1200")
+
 def get_files_in_dir(directory):
     """Gets files, excluding dirs, inside a given directory as a list."""
     files = []
@@ -149,6 +180,9 @@ def get_files_in_dir(directory):
             files.append(f)
     return files
 
+#-----------------------------
+# JSON file related functions
+#-----------------------------
 def make_entry_for_file(filename, directory):
     """Makes a 2D array for a list of mod and hashes for a file."""
     file_path = rel_path(directory, filename)
@@ -156,5 +190,13 @@ def make_entry_for_file(filename, directory):
     file_history = []
     file_history.append(get_mod_and_hash(file_path))
     return file_history
+
+def get_data_from_sync_file(filename):
+    """Returns JSON data from file as object."""
+    with open(filename, "r+") as sync_f:
+        return json.load(sync_f)
+
+#==============================================================================
+# ENTRY POINT
 
 do_sync(sys.argv[1], sys.argv[2])
