@@ -42,7 +42,7 @@ def sync_dirs(dir_one, dir_two):
     # Update sync files for both folders
     #update_sync_file(dir_one)
     #update_sync_file(dir_two)
-    get_lastmodtime_and_hash("dir1/file1_1.txt")
+    print(get_lastmodtime_and_hash("dir1/file1_1.txt"))
 
 def update_sync_file(directory):
     """Scans a given directory for files and updates its sync file."""
@@ -82,12 +82,20 @@ def update_file_history(file_history_list):
 # Modification time and hash functions
 #--------------------------------------
 def get_lastmodtime_and_hash(filename):
-    """Gets the latest modification date and creates sha256 hash for file."""
-    print('Last modified: ', modification_timestamp(filename))
+    """Gets the latest modification date and creates sha256 hash for file.
+    Returns an array with time at the first index and hash at the second index.
+    """
+    time_and_hash = []
 
+    time_and_hash.append(modification_timestamp(filename))
+
+    # Create digest from contents of file
     with open(filename, "r") as f:
         file_contents = f.read()
-        print(file_contents)
+        m = hashlib.sha256(file_contents)
+        time_and_hash.append(m.hexdigest())
+
+    return time_and_hash
 
 def modification_timestamp(filename):
     """Get the last modified time in the format specified in the assignment."""
