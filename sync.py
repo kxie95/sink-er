@@ -4,6 +4,8 @@ import sys
 import os
 import json
 import hashlib
+import datetime
+import time
 
 def do_sync(arg_one, arg_two):
     """Check arguments and take appropriate action."""
@@ -38,8 +40,9 @@ def sync_dirs(dir_one, dir_two):
     # write_json_to_file('file1_2.txt', [[12, 12],[33,33]], from_sync_file)
 
     # Update sync files for both folders
-    update_sync_file(dir_one)
-    update_sync_file(dir_two)
+    #update_sync_file(dir_one)
+    #update_sync_file(dir_two)
+    get_lastmodtime_and_hash("dir1/file1_1.txt")
 
 def update_sync_file(directory):
     """Scans a given directory for files and updates its sync file."""
@@ -47,12 +50,13 @@ def update_sync_file(directory):
     # Get files in directory
     files = get_files_in_dir(directory)
 
-    sync_file = directory + "/.sync"
     # Create sync file if it doesn't exist
+    sync_file = directory + "/.sync"
     if not os.path.isfile(sync_file):
         open(sync_file, "w+").close()
 
     with open(sync_file, "r+") as sync_f:
+
         # If sync file is not empty, there is data.
         if os.stat(sync_file).st_size > 0:
             data = json.load(sync_f)
@@ -61,13 +65,34 @@ def update_sync_file(directory):
                     print('FOUND YOU')
                 else:
                     write_json_to_file(f, update_file_history(f))
+
         # Sync file is empty, check if there are files in dir to add.
         else:
-            print('Sync file is empty.')
+            # If no files to add, nothing to update so return.
+            if not files:
+                return
+            for f in files:
+                write_json_to_file(f, value, sync_file)
 
 def update_file_history(file_history_list):
     """Adds arrays to history list for a file."""
     print('Update.')
+
+#--------------------------------------
+# Modification time and hash functions
+#--------------------------------------
+def get_lastmodtime_and_hash(filename):
+    """Gets the latest modification date and creates sha256 hash for file."""
+    print('Last modified: ', modification_timestamp(filename))
+
+    with open(filename, "r") as f:
+        file_contents = f.read()
+        print(file_contents)
+
+def modification_timestamp(filename):
+    """Get the last modified time in the format specified in the assignment."""
+    last_mod_time = os.path.getmtime(filename)
+    return time.strftime("%Y-%m-%d %H:%M:%S +1200", time.gmtime(last_mod_time))
 
 def get_files_in_dir(directory):
     """Gets files, excluding dirs, inside a given directory as a list."""
