@@ -73,10 +73,10 @@ def merge_dirs(dir_one, dir_two):
             if file_data[0][1] == file_data_2[0][1]:
                 if not mod_time == mod_time_2:
                     if mod_time < mod_time_2:
-                        shutil.copyfile(dir_one+"/"+key, dir_two+"/"+key)
+                        copy_file(key, dir_one, dir_two)
                         update_sync_file(dir_two)
                     else:
-                        shutil.copyfile(dir_two+"/"+key, dir_one+"/"+key)
+                        copy_file(key, dir_two, dir_one)
                         update_sync_file(dir_one)
 
             # Different digest
@@ -85,6 +85,10 @@ def merge_dirs(dir_one, dir_two):
                     for x in range(file_data_2):
                         if file_data[0][0] in file_data_2[x]:
                             print('Replace old version with new')
+
+def copy_file(file_name, src_folder, dest_folder):
+    full_file_name = os.path.join(src_folder, file_name)
+    shutil.copy(full_file_name, dest_folder)
 
 def copy_and_update_sync(src_folder, dest_folder):
     src_files = os.listdir(src_folder)
