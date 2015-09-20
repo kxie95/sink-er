@@ -49,30 +49,50 @@ def merge_dirs(dir_one, dir_two):
     dir_one_data = get_data_from_sync_file(dir_one + "/.sync")
     dir_two_data = get_data_from_sync_file(dir_two + "/.sync")
 
-    for key in dir_one_data:
-        file_data = dir_one_data[key]
-        file_data_2 = dir_two_data[key]
+    # If both sync files empty
+    if dir_one_data is None and dir_two_data is None:
+        return
 
-        # Latest modification times
-        mod_time = string_to_time(file_data[0][0])
-        mod_time_2 = string_to_time(file_data_2[0][0])
+    # If one sync file is empty, copy files and update sync file
+    if dir_one_data is None:
+        copy_and_update_sync(dir_two, dir_one)
+    elif dir_two_data is None:
+        copy_and_update_sync(dir_one, dir_two)
 
-        # TODO Same digest, different mod times
-        if file_data[0][1] == file_data_2[0][1]:
-            if not mod_time == mod_time_2:
+    # Both sync files contain info
+    else:
+        for key in dir_one_data:
+            file_data = dir_one_data[key]
+            file_data_2 = dir_two_data[key]
+
+            # Latest modification times
+            mod_time = string_to_time(file_data[0][0])
+            mod_time_2 = string_to_time(file_data_2[0][0])
+
+            # TODO Same digest, different mod times
+            if file_data[0][1] == file_data_2[0][1]:
+                if not mod_time == mod_time_2:
+                    if mod_time < mod_time_2:
+                        shutil.copyfile(dir_one+"/"+key, dir_two+"/"+key)
+                        update_sync_file(dir_two)
+                    else:
+                        shutil.copyfile(dir_two+"/"+key, dir_one+"/"+key)
+                        update_sync_file(dir_one)
+
+            # Different digest
+            else:
                 if mod_time < mod_time_2:
-                    shutil.copyfile(dir_one+"/"+key, dir_two+"/"+key)
-                    update_sync_file(dir_two)
-                else:
-                    shutil.copyfile(dir_two+"/"+key, dir_one+"/"+key)
-                    update_sync_file(dir_one)
+                    for x in range(file_data_2):
+                        if file_data[0][0] in file_data_2[x]:
+                            print('Replace old version with new')
 
-        # Different digest
-        else:
-            if mod_time_1 < mod_time_2:
-                for x in range(file_data_2):
-                    if file_data_2[x][0] == file_data[0][0]:
-                        print('Replace old version with new')
+def copy_and_update_sync(src_folder, dest_folder):
+    src_files = os.listdir(src_folder)
+    for file_name in src_files:
+        full_file_name = os.path.join(src_folder, file_name)
+        if os.path.isfile(full_file_name) and not file_name.startswith("."):
+            shutil.copy(full_file_name, dest_folder)
+    update_sync_file(dest_folder)
 
 def update_sync_file(directory):
     """Scans a given directory for files and updates its sync file."""
@@ -193,8 +213,10 @@ def make_entry_for_file(filename, directory):
 
 def get_data_from_sync_file(filename):
     """Returns JSON data from file as object."""
-    with open(filename, "r+") as sync_f:
-        return json.load(sync_f)
+    if not os.stat(filename).st_size == 0:
+        with open(filename, "r+") as sync_f:
+            return json.load(sync_f)
+    return None
 
 #==============================================================================
 # ENTRY POINT
