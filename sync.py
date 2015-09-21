@@ -61,30 +61,18 @@ def merge_dirs(dir_one, dir_two):
 
     # Both sync files contain info
     else:
+        # Go through keys in dir_one
         for key in dir_one_data:
-            file_data = dir_one_data[key]
-            file_data_2 = dir_two_data[key]
 
-            # Latest modification times
-            mod_time = string_to_time(file_data[0][0])
-            mod_time_2 = string_to_time(file_data_2[0][0])
-
-            # TODO Same digest, different mod times
-            if file_data[0][1] == file_data_2[0][1]:
-                if not mod_time == mod_time_2:
-                    if mod_time < mod_time_2:
-                        copy_file(key, dir_one, dir_two)
-                        update_sync_file(dir_two)
-                    else:
-                        copy_file(key, dir_two, dir_one)
-                        update_sync_file(dir_one)
-
-            # Different digest
+            # Matching key found
+            if key in dir_two_data.keys():
+                print("There is a matching key.")
+            
+            # No key found in other directory
             else:
-                if mod_time < mod_time_2:
-                    for x in range(file_data_2):
-                        if file_data[0][0] in file_data_2[x]:
-                            print('Replace old version with new')
+                copy_file(key, dir_one, dir_two)
+                dir_two_data[key].insert(dir_one_data[key][0], 0)
+
 
 def copy_file(file_name, src_folder, dest_folder):
     full_file_name = os.path.join(src_folder, file_name)
@@ -96,7 +84,6 @@ def copy_and_update_sync(src_folder, dest_folder):
         full_file_name = os.path.join(src_folder, file_name)
         if os.path.isfile(full_file_name) and not file_name.startswith("."):
             shutil.copy(full_file_name, dest_folder)
-    update_sync_file(dest_folder)
 
 def update_sync_file(directory):
     """Scans a given directory for files and updates its sync file."""
@@ -185,7 +172,7 @@ def get_mod_deleted(filename):
     """Returns array with last mod time at first index and deleted at second
     index.
     """
-    return [modification_timestamp(filename), "deleted"]
+    return [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S +1200"), "deleted"]
 
 def modification_timestamp(filename):
     """Get the last modified time in the format specified in the assignment."""
@@ -221,6 +208,10 @@ def get_data_from_sync_file(filename):
         with open(filename, "r+") as sync_f:
             return json.load(sync_f)
     return None
+
+def write_to_json_file(data, filename):
+    with open(filename, "r+") as sync_f:
+        json.dump(data, sync_f, indent=4, separators=(',', ': '))
 
 #==============================================================================
 # ENTRY POINT
