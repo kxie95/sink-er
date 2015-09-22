@@ -66,39 +66,62 @@ def merge_dirs(dir_one, dir_two):
             # Matching key found
             if key in dir_two_data.keys():
                 print("There is a matching key.")
+
+                # HANDLE DELETIONS FIRST
+
+                # If digests different
+                if not dir_one_data[key][0][1] == dir_two_data[key][0][1]:
+
+                    found_earlier = False
+                    # If digest of one is contained in earlier version
+                    if any(dir_one_data[key][0][1] in subl for subl in dir_two_data[key][1:]):
+                            # One has been superseded, copy two to one
+                            copy_file_and_update(key, dir_two, dir_one)
+                            found_earlier = True
+
+                    if any(dir_two_data[key][0][1] in subl for subl in dir_one_data[key][1:]):
+                        # Two has been superseded, copy one to two
+                        copy_file_and_update(key, dir_one, dir_two)
+                        found_earlier = True
+
+                    # Completely unique digest found
+                    if not found_earlier:
+                        if is_older(dir_one_data[key][0][0], dir_two_data[key][0][0]) == -1:
+                            copy_file_and_update(key, dir_two, dir_one)
+                        else:
+                            copy_file_and_update(key, dir_one, dir_two)
+
                 # If modified time not the same
-                if not dir_one_data[key][0][0] == dir_two_data[key][0][0]:
-                    if string_to_time(dir_one_data[key][0][0]) < string_to_time(dir_two_data[key][0][0]):
-                        copy_file(key, dir_two, dir_one)
-                        update_sync_file(dir_one)
+                if dir_one_data[key][0][0] == dir_two_data[key][0][0]:
+                    if is_older(dir_one_data[key][0][0], dir_two_data[key][0][0]) == -1:
+                        copy_file_and_update(key, dir_two, dir_one)
                     else:
-                        copy_file(key, dir_one, dir_two)
-                        update_sync_file(dir_one)
+                        copy_file_and_update(key, dir_one, dir_two)
 
             # No key found in other directory
             else:
-                copy_file(key, dir_one, dir_two)
-                update_sync_file(dir_two)
+                copy_file_and_update(key, dir_one, dir_two)
 
         # Go through keys in dir_two
         for key in dir_two_data:
 
             # Matching key found
             if not key in dir_one_data.keys():
-                copy_file(key, dir_two, dir_one)
-                update_sync_file(dir_one)
+                copy_file_and_update(key, dir_two, dir_one)
 
 
-def copy_file(file_name, src_folder, dest_folder):
+def copy_file_and_update(file_name, src_folder, dest_folder):
     full_file_name = os.path.join(src_folder, file_name)
     shutil.copy2(full_file_name, dest_folder)
+    update_sync_file(dest_folder)
 
 def copy_and_update_sync(src_folder, dest_folder):
     src_files = os.listdir(src_folder)
     for file_name in src_files:
         full_file_name = os.path.join(src_folder, file_name)
         if os.path.isfile(full_file_name) and not file_name.startswith("."):
-            shutil.copy(full_file_name, dest_folder)
+            shutil.copy2(full_file_name, dest_folder)
+    update_sync_file(dest_folder)
 
 def update_sync_file(directory):
     """Scans a given directory for files and updates its sync file."""
@@ -194,6 +217,14 @@ def modification_timestamp(filename):
 def string_to_time(string):
     """Returns time object for a given string."""
     return time.strptime(string, "%Y-%m-%d %H:%M:%S +1200")
+
+def is_older(time_x, time_y):
+    """Returns true if x is older than y."""
+    if string_to_time(time_x) < string_to_time(time_y):
+        return -1
+    elif string_to_time(time_x) > string_to_time(time_y):
+        return 1
+    return 0
 
 def get_files_in_dir(directory):
     """Gets files, excluding dirs, inside a given directory as a list."""
