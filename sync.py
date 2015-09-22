@@ -36,7 +36,6 @@ def sync_dirs(dir_one, dir_two):
     # Make new directory if needed
     if not os.path.isdir(dir_two):
         os.makedirs(dir_two)
-        print('Made new dir: ' + dir_two)
 
     # Update sync files for both folders
     update_sync_file(dir_one)
@@ -61,30 +60,38 @@ def merge_dirs(dir_one, dir_two):
 
     # Both sync files contain info
     else:
+        # Go through keys in dir_one
         for key in dir_one_data:
-            file_data = dir_one_data[key]
-            file_data_2 = dir_two_data[key]
 
-            # Latest modification times
-            mod_time = string_to_time(file_data[0][0])
-            mod_time_2 = string_to_time(file_data_2[0][0])
-
-            # TODO Same digest, different mod times
-            if file_data[0][1] == file_data_2[0][1]:
-                if not mod_time == mod_time_2:
-                    if mod_time < mod_time_2:
-                        shutil.copyfile(dir_one+"/"+key, dir_two+"/"+key)
-                        update_sync_file(dir_two)
+            # Matching key found
+            if key in dir_two_data.keys():
+                print("There is a matching key.")
+                # If modified time not the same
+                if not dir_one_data[key][0][0] == dir_two_data[key][0][0]:
+                    if string_to_time(dir_one_data[key][0][0]) < string_to_time(dir_two_data[key][0][0]):
+                        copy_file(key, dir_two, dir_one)
+                        update_sync_file(dir_one)
                     else:
-                        shutil.copyfile(dir_two+"/"+key, dir_one+"/"+key)
+                        copy_file(key, dir_one, dir_two)
                         update_sync_file(dir_one)
 
-            # Different digest
+            # No key found in other directory
             else:
-                if mod_time < mod_time_2:
-                    for x in range(file_data_2):
-                        if file_data[0][0] in file_data_2[x]:
-                            print('Replace old version with new')
+                copy_file(key, dir_one, dir_two)
+                update_sync_file(dir_two)
+
+        # Go through keys in dir_two
+        for key in dir_two_data:
+
+            # Matching key found
+            if not key in dir_one_data.keys():
+                copy_file(key, dir_two, dir_one)
+                update_sync_file(dir_one)
+
+
+def copy_file(file_name, src_folder, dest_folder):
+    full_file_name = os.path.join(src_folder, file_name)
+    shutil.copy2(full_file_name, dest_folder)
 
 def copy_and_update_sync(src_folder, dest_folder):
     src_files = os.listdir(src_folder)
@@ -92,7 +99,6 @@ def copy_and_update_sync(src_folder, dest_folder):
         full_file_name = os.path.join(src_folder, file_name)
         if os.path.isfile(full_file_name) and not file_name.startswith("."):
             shutil.copy(full_file_name, dest_folder)
-    update_sync_file(dest_folder)
 
 def update_sync_file(directory):
     """Scans a given directory for files and updates its sync file."""
@@ -102,7 +108,6 @@ def update_sync_file(directory):
 
     # Create sync file if it doesn't exist
     sync_file = directory + "/.sync"
-    print(sync_file)
     if not os.path.isfile(sync_file):
         open(sync_file, "w+").close()
 
@@ -131,7 +136,6 @@ def update_sync_file(directory):
             # Check for deleted files
             for key in data:
                 latest_data = data[key][0][1]
-                print(latest_data)
                 if key not in files:
                     if not latest_data == "deleted":
                         data[key].insert(0, get_mod_deleted(rel_path(directory, f)))
@@ -155,7 +159,6 @@ def update_sync_file(directory):
 def rel_path(directory, filename):
     """Get relative path for a file."""
     rel_dir = os.path.relpath(directory)
-    print(os.path.join(rel_dir, filename))
     return os.path.join(rel_dir, filename)
 
 #--------------------------------------
@@ -170,7 +173,7 @@ def get_mod_and_hash(filename):
     time_and_hash.append(modification_timestamp(filename))
 
     # Create digest from contents of file
-    with open(filename, "r") as f:
+    with open(filename, "rb") as f:
         file_contents = f.read()
         m = hashlib.sha256(file_contents)
         time_and_hash.append(m.hexdigest())
@@ -181,7 +184,7 @@ def get_mod_deleted(filename):
     """Returns array with last mod time at first index and deleted at second
     index.
     """
-    return [modification_timestamp(filename), "deleted"]
+    return [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S +1200"), "deleted"]
 
 def modification_timestamp(filename):
     """Get the last modified time in the format specified in the assignment."""
@@ -206,7 +209,6 @@ def get_files_in_dir(directory):
 def make_entry_for_file(filename, directory):
     """Makes a 2D array for a list of mod and hashes for a file."""
     file_path = rel_path(directory, filename)
-    print(file_path)
     file_history = []
     file_history.append(get_mod_and_hash(file_path))
     return file_history
@@ -217,6 +219,10 @@ def get_data_from_sync_file(filename):
         with open(filename, "r+") as sync_f:
             return json.load(sync_f)
     return None
+
+def write_to_json_file(data, filename):
+    with open(filename, "r+") as sync_f:
+        json.dump(data, sync_f, indent=4, separators=(',', ': '))
 
 #==============================================================================
 # ENTRY POINT
