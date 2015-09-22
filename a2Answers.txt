@@ -1,0 +1,2 @@
+1. This would not scale well because you have to scan both the sync file and the files in the directory syncing; have to loop through many times making it inefficient.
+2. 

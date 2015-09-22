@@ -67,8 +67,40 @@ def merge_dirs(dir_one, dir_two):
             if key in dir_two_data.keys():
                 print("There is a matching key.")
 
-                # HANDLE DELETIONS FIRST
+                if dir_one_data[key][0][1] == "deleted" and dir_two_data[key][0][1] == "deleted":
+                    continue
 
+                # HANDLE DELETIONS FIRST
+                if dir_one_data[key][0][1] == "deleted" and not dir_two_data[key][0][1] == "deleted":
+                    print("Deleted: " + key)
+                    print("Dir 2: " + str(dir_two_data[key][1][1]))
+                    # Check if other lists' second entry is deleted
+                    if dir_two_data[key][1][1] == "deleted":
+                        copy_file_and_update(key, dir_two, dir_one)
+
+                    # Delete in both dirs
+                    else:
+                        if os.path.isfile(dir_one + "/" + key):
+                            os.remove(dir_one + "/" + key)
+
+                        if os.path.isfile(dir_two + "/" + key):
+                            os.remove(dir_two + "/" + key)
+                    continue
+
+                elif dir_two_data[key][0][1] == "deleted" and not dir_one_data[key][0][1] == "deleted":
+                    print(dir_one_data[key][1][1])
+                    # Check if other lists' second entry is deleted
+                    if dir_one_data[key][1][1] == "deleted":
+                        copy_file_and_update(key, dir_two, dir_one)
+
+                    # Delete in both dirs
+                    else:
+                        if os.path.isfile(dir_one + "/" + key):
+                            os.remove(dir_one + "/" + key)
+
+                        if os.path.isfile(dir_two + "/" + key):
+                            os.remove(dir_two + "/" + key)
+                    continue
                 # If digests different
                 if not dir_one_data[key][0][1] == dir_two_data[key][0][1]:
 
@@ -129,6 +161,7 @@ def update_sync_file(directory):
     # Get files in directory
     files = get_files_in_dir(directory)
 
+    print(files)
     # Create sync file if it doesn't exist
     sync_file = directory + "/.sync"
     if not os.path.isfile(sync_file):
@@ -161,7 +194,7 @@ def update_sync_file(directory):
                 latest_data = data[key][0][1]
                 if key not in files:
                     if not latest_data == "deleted":
-                        data[key].insert(0, get_mod_deleted(rel_path(directory, f)))
+                        data[key].insert(0, get_mod_deleted())
 
     # Sync file is empty, check if there are files in dir to add.
     else:
@@ -203,7 +236,7 @@ def get_mod_and_hash(filename):
 
     return time_and_hash
 
-def get_mod_deleted(filename):
+def get_mod_deleted():
     """Returns array with last mod time at first index and deleted at second
     index.
     """
