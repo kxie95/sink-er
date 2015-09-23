@@ -62,59 +62,110 @@ def check_sync_files(dir_one, dir_two):
         copy_and_update_sync(dir_one, dir_two)
 
 def merge_dirs(dir_one, dir_two):
+    """Merge directories; resolve any inconsistent files."""
+    # Sync up any missing files
+    handle_missing_files(dir_one, dir_two)
+
+    handle_deletions(dir_one, dir_two)
+
+    handle_digest(dir_one, dir_two)
+
+def handle_deletions(dir_one, dir_two):
     dir_one_data = get_data_from_sync_file(dir_one + "/.sync")
     dir_two_data = get_data_from_sync_file(dir_two + "/.sync")
 
-    # Both sync files contain info
-        # Go through keys in dir_one
-    for key in dir_one_data:
+    # Loop through keys
+    for d1_file in dir_one_data:
+        for d2_file in dir_two_data:
 
-        # Matching key found
-        if key in dir_two_data.keys():
-            print("There is a matching key.")
+            # Matching file data found
+            if d1_file == d2_file:
+                filename = d1_file
 
-            # HANDLE DELETIONS FIRST
+                # If both deleted separately, nothing needs to be done
+                if dir_one_data[filename][0][1] == "deleted" and dir_two_data[filename][0][1] == "deleted":
+                    continue
 
-            # If digests different
-            if not dir_one_data[key][0][1] == dir_two_data[key][0][1]:
-
-                found_earlier = False
-                # If digest of one is contained in earlier version
-                if any(dir_one_data[key][0][1] in subl for subl in dir_two_data[key][1:]):
-                        # One has been superseded, copy two to one
-                        copy_file_and_update(key, dir_two, dir_one)
-                        found_earlier = True
-
-                if any(dir_two_data[key][0][1] in subl for subl in dir_one_data[key][1:]):
-                    # Two has been superseded, copy one to two
-                    copy_file_and_update(key, dir_one, dir_two)
-                    found_earlier = True
-
-                # Completely unique digest found
-                if not found_earlier:
-                    if is_older(dir_one_data[key][0][0], dir_two_data[key][0][0]) == -1:
-                        copy_file_and_update(key, dir_two, dir_one)
+                # If dir one file is deleted
+                elif dir_one_data[filename][0][1] == "deleted":
+                    if any(dir_one_data[filename][0] == x for x in dir_two_data[filename]):
+                        copy_file_and_update(filename, dir_two, dir_one)
                     else:
-                        copy_file_and_update(key, dir_one, dir_two)
+                        os.remove(dir_two + "/" + filename)
+                        update_sync_file(dir_two)
 
-            # If modified time not the same
-            if dir_one_data[key][0][0] == dir_two_data[key][0][0]:
-                if is_older(dir_one_data[key][0][0], dir_two_data[key][0][0]) == -1:
-                    copy_file_and_update(key, dir_two, dir_one)
+                # If dir two file is deleted
+                elif dir_two_data[filename][0][1] == "deleted":
+                    if any(dir_two_data[filename][0] == x for x in dir_one_data[filename]):
+                        copy_file_and_update(filename, dir_one, dir_two)
+                    else:
+                        os.remove(dir_one + "/" + filename)
+                        update_sync_file(dir_one)
+
+def handle_digest(dir_one, dir_two):
+    dir_one_data = get_data_from_sync_file(dir_one + "/.sync")
+    dir_two_data = get_data_from_sync_file(dir_two + "/.sync")
+
+    # Loop through keys
+    for d1_file in dir_one_data:
+        for d2_file in dir_two_data:
+
+            # Matching key found
+            if d1_file == d2_file:
+
+                filename = d1_file
+
+                # Check that they're not deletions (should have been handled already)
+                if dir_one_data[filename][0][1] == "deleted" or dir_two_data[filename][0][1] == "deleted":
+                    continue
+
+                # Check digests
                 else:
-                    copy_file_and_update(key, dir_one, dir_two)
 
-        # No key found in other directory
-        else:
+                    # If digests are different
+                    if not dir_one_data[filename][0][1] == dir_two_data[filename][0][1]:
+
+                        found_earlier = False
+
+                        # If digest of one is contained in earlier version
+                        if any(dir_one_data[filename][0][1] in subl for subl in dir_two_data[filename][1:]):
+                                # One has been superseded, copy two to one
+                                copy_file_and_update(filename, dir_two, dir_one)
+                                found_earlier = True
+
+                        if any(dir_two_data[filename][0][1] in subl for subl in dir_one_data[filename][1:]):
+                            # Two has been superseded, copy one to two
+                            copy_file_and_update(filename, dir_one, dir_two)
+                            found_earlier = True
+
+                        # Completely unique digest found
+                        if not found_earlier:
+                            if is_older(dir_one_data[filename][0][0], dir_two_data[filename][0][0]) == -1:
+                                copy_file_and_update(filename, dir_two, dir_one)
+                            else:
+                                copy_file_and_update(filename, dir_one, dir_two)
+
+                        # If modified time not the same
+                        if not dir_one_data[filename][0][0] == dir_two_data[filename][0][0]:
+                            if is_older(dir_one_data[filename][0][0], dir_two_data[filename][0][0]) == -1:
+                                copy_file_and_update(filename, dir_two, dir_one)
+                            else:
+                                copy_file_and_update(filename, dir_one, dir_two)
+
+def handle_missing_files(dir_one, dir_two):
+    """Checks keys in sync file and makes sure other dir has that key if not deleted."""
+    dir_one_data = get_data_from_sync_file(dir_one + "/.sync")
+    dir_two_data = get_data_from_sync_file(dir_two + "/.sync")
+
+    # Go through keys in dir_one
+    for key in dir_one_data:
+        if not key in dir_two_data.keys() and not dir_one_data[key][0][1] == "deleted":
             copy_file_and_update(key, dir_one, dir_two)
 
     # Go through keys in dir_two
     for key in dir_two_data:
-
-        # Matching key found
-        if not key in dir_one_data.keys():
+        if not key in dir_one_data.keys() and not dir_two_data[key][0][1] == "deleted":
             copy_file_and_update(key, dir_two, dir_one)
-
 
 def copy_file_and_update(file_name, src_folder, dest_folder):
     full_file_name = os.path.join(src_folder, file_name)
@@ -167,7 +218,7 @@ def update_sync_file(directory):
                 latest_data = data[key][0][1]
                 if key not in files:
                     if not latest_data == "deleted":
-                        data[key].insert(0, get_mod_deleted(rel_path(directory, f)))
+                        data[key].insert(0, get_mod_deleted())
 
     # Sync file is empty, check if there are files in dir to add.
     else:
@@ -209,7 +260,7 @@ def get_mod_and_hash(filename):
 
     return time_and_hash
 
-def get_mod_deleted(filename):
+def get_mod_deleted():
     """Returns array with last mod time at first index and deleted at second
     index.
     """
