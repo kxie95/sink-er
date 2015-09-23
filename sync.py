@@ -8,6 +8,11 @@ import datetime
 import time
 import shutil
 
+"""
+Program which syncs two directories.
+By: Karen Xie
+UPI: kxie094
+"""
 def do_sync(arg_one, arg_two):
     """Check arguments and take appropriate action."""
     arg_one_is_dir = os.path.isdir(arg_one)
@@ -49,19 +54,14 @@ def sync_dirs(dir_one, dir_two):
     dir_two_sub_list = get_dirs(dir_two)
 
     if not dir_one_sub_list and not dir_two_sub_list:
-        print("No more subdirs.")
         return
 
     elif dir_one_sub_list and not dir_two_sub_list:
-        print("Dir two has no subdirs, Dir one does.")
-
         for sub_f in dir_one_sub_list:
             if not os.path.isdir(os.getcwd() + "/" + dir_two + "/" + sub_f):
                 os.makedirs(dir_two + "/" + sub_f)
 
     elif not dir_one_sub_list and dir_two_sub_list:
-        print("Dir one has no subdirs, Dir two does.")
-
         for sub_f in dir_two_sub_list:
             if not os.path.isdir(os.getcwd() + "/" + dir_one + "/" + sub_f):
                 os.makedirs(dir_one + "/" + sub_f)

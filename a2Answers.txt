@@ -1,0 +1,16 @@
+By: Karen Xie
+UPI: kxie094
+
+1. No, it doesn't scale well because of the recursion (keeping a sync file for each subdirectory) plus the fact that you have to loop through both the sync file and the files in the directory to check if they are consistent with each other. When checking the two sync files against each other, this ends up in a nested for loop which is inefficient.
+
+2. 
+Assumption 1:
+"If two files have the same signature, they are the same version. (In reality this may not be the case because
+the file could have been altered and then changed back to its original state.)"
+
+Use versioning systems. Everytime the file is closed or saved, a new version will be created. A log can be used keep track of these changes and this is useful for reverting and comparing with previous versions.
+
+Assumption 3:
+"The pathnames sent to the sync program will be independent. You don't have to worry about infinite recursion because of one directory being inside the other."
+
+Instead of only using the name to identify the folder, use some way of uniquely identifying each folder (eg. make a unique id). An an algorithm can be used to detect cycles by counting the number of symbolic links on the directories. This will stop infinite recursion.
