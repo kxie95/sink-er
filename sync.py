@@ -21,21 +21,19 @@ def do_sync(arg_one, arg_two):
     elif arg_one_is_dir and arg_two_is_dir:
         sync_dirs(arg_one, arg_two)
 
-    # One argument is not a directory (create in sync_dirs)
+    # One argument is not a directory, create and sync
     else:
         if arg_one_is_dir:
             # Arg one is directory
+            os.makedirs(arg_two)
             sync_dirs(arg_one, arg_two)
         else:
             # Arg two is directory
+            os.makedirs(arg_one)
             sync_dirs(arg_two, arg_one)
 
 def sync_dirs(dir_one, dir_two):
     """Syncs from one directory to another directory."""
-
-    # Make new directory if needed
-    if not os.path.isdir(dir_two):
-        os.makedirs(dir_two)
 
     # Update sync files for both folders
     update_sync_file(dir_one)
@@ -46,6 +44,60 @@ def sync_dirs(dir_one, dir_two):
 
     # Merge directories
     merge_dirs(dir_one, dir_two)
+
+    dir_one_sub_list = get_dirs(dir_one)
+    dir_two_sub_list = get_dirs(dir_two)
+
+    if not dir_one_sub_list and not dir_two_sub_list:
+        print("No more subdirs.")
+        return
+
+    elif dir_one_sub_list and not dir_two_sub_list:
+        print("Dir two has no subdirs, Dir one does.")
+
+        for sub_f in dir_one_sub_list:
+            if not os.path.isdir(os.getcwd() + "/" + dir_two + "/" + sub_f):
+                os.makedirs(dir_two + "/" + sub_f)
+
+    elif not dir_one_sub_list and dir_two_sub_list:
+        print("Dir one has no subdirs, Dir two does.")
+
+        for sub_f in dir_two_sub_list:
+            if not os.path.isdir(os.getcwd() + "/" + dir_one + "/" + sub_f):
+                os.makedirs(dir_one + "/" + sub_f)
+
+    dir_one_sub_list = get_dirs(dir_one)
+    dir_two_sub_list = get_dirs(dir_two)
+
+    for sub_f_one in dir_one_sub_list:
+            for sub_f_two in dir_two_sub_list:
+
+                if sub_f_one not in dir_two_sub_list:
+                    if not os.path.isdir(os.getcwd() + "/" + dir_two + "/" + sub_f_one):
+                        os.makedirs(dir_two + "/" + sub_f_one)
+
+                elif sub_f_two not in dir_one_sub_list:
+                    if not os.path.isdir(os.getcwd() + "/" + dir_one + "/" + sub_f_two):
+                        os.makedirs(dir_one + "/" + sub_f_two)
+
+    dir_one_sub_list = get_dirs(dir_one)
+    dir_two_sub_list = get_dirs(dir_two)
+
+    for sub_f_one in dir_one_sub_list:
+        for sub_f_two in dir_two_sub_list:
+
+            if sub_f_one == sub_f_two:
+                sync_dirs(os.path.join(dir_one, sub_f_one), os.path.join(dir_two, sub_f_two))
+                
+def get_dirs(path):
+    """Gets all directories in a given path."""
+    dirs = []
+    for f in os.listdir(path):
+        if not f.startswith('.') and os.path.isdir((os.path.join(path, f))):
+            dirs.append(f)
+    if not dirs:
+        return None
+    return dirs
 
 def check_sync_files(dir_one, dir_two):
     dir_one_data = get_data_from_sync_file(dir_one + "/.sync")
@@ -74,98 +126,104 @@ def handle_deletions(dir_one, dir_two):
     dir_one_data = get_data_from_sync_file(dir_one + "/.sync")
     dir_two_data = get_data_from_sync_file(dir_two + "/.sync")
 
-    # Loop through keys
-    for d1_file in dir_one_data:
-        for d2_file in dir_two_data:
+    if dir_one_data is not None and dir_two_data is not None:
 
-            # Matching file data found
-            if d1_file == d2_file:
-                filename = d1_file
+        # Loop through keys
+        for d1_file in dir_one_data:
+            for d2_file in dir_two_data:
 
-                # If both deleted separately, nothing needs to be done
-                if dir_one_data[filename][0][1] == "deleted" and dir_two_data[filename][0][1] == "deleted":
-                    continue
+                # Matching file data found
+                if d1_file == d2_file:
+                    filename = d1_file
 
-                # If dir one file is deleted
-                elif dir_one_data[filename][0][1] == "deleted":
-                    if any(dir_one_data[filename][0] == x for x in dir_two_data[filename]):
-                        copy_file_and_update(filename, dir_two, dir_one)
-                    else:
-                        os.remove(dir_two + "/" + filename)
-                        update_sync_file(dir_two)
+                    # If both deleted separately, nothing needs to be done
+                    if dir_one_data[filename][0][1] == "deleted" and dir_two_data[filename][0][1] == "deleted":
+                        continue
 
-                # If dir two file is deleted
-                elif dir_two_data[filename][0][1] == "deleted":
-                    if any(dir_two_data[filename][0] == x for x in dir_one_data[filename]):
-                        copy_file_and_update(filename, dir_one, dir_two)
-                    else:
-                        os.remove(dir_one + "/" + filename)
-                        update_sync_file(dir_one)
+                    # If dir one file is deleted
+                    elif dir_one_data[filename][0][1] == "deleted":
+                        if any(dir_one_data[filename][0] == x for x in dir_two_data[filename]):
+                            copy_file_and_update(filename, dir_two, dir_one)
+                        else:
+                            os.remove(dir_two + "/" + filename)
+                            update_sync_file(dir_two)
+
+                    # If dir two file is deleted
+                    elif dir_two_data[filename][0][1] == "deleted":
+                        if any(dir_two_data[filename][0] == x for x in dir_one_data[filename]):
+                            copy_file_and_update(filename, dir_one, dir_two)
+                        else:
+                            os.remove(dir_one + "/" + filename)
+                            update_sync_file(dir_one)
 
 def handle_digest(dir_one, dir_two):
     dir_one_data = get_data_from_sync_file(dir_one + "/.sync")
     dir_two_data = get_data_from_sync_file(dir_two + "/.sync")
 
-    # Loop through keys
-    for d1_file in dir_one_data:
-        for d2_file in dir_two_data:
+    if dir_one_data is not None and dir_two_data is not None:
 
-            # Matching key found
-            if d1_file == d2_file:
+        # Loop through keys
+        for d1_file in dir_one_data:
+            for d2_file in dir_two_data:
 
-                filename = d1_file
+                # Matching key found
+                if d1_file == d2_file:
 
-                # Check that they're not deletions (should have been handled already)
-                if dir_one_data[filename][0][1] == "deleted" or dir_two_data[filename][0][1] == "deleted":
-                    continue
+                    filename = d1_file
 
-                # Check digests
-                else:
+                    # Check that they're not deletions (should have been handled already)
+                    if dir_one_data[filename][0][1] == "deleted" or dir_two_data[filename][0][1] == "deleted":
+                        continue
 
-                    # If digests are different
-                    if not dir_one_data[filename][0][1] == dir_two_data[filename][0][1]:
+                    # Check digests
+                    else:
 
-                        found_earlier = False
+                        # If digests are different
+                        if not dir_one_data[filename][0][1] == dir_two_data[filename][0][1]:
 
-                        # If digest of one is contained in earlier version
-                        if any(dir_one_data[filename][0][1] in subl for subl in dir_two_data[filename][1:]):
-                                # One has been superseded, copy two to one
-                                copy_file_and_update(filename, dir_two, dir_one)
+                            found_earlier = False
+
+                            # If digest of one is contained in earlier version
+                            if any(dir_one_data[filename][0][1] in subl for subl in dir_two_data[filename][1:]):
+                                    # One has been superseded, copy two to one
+                                    copy_file_and_update(filename, dir_two, dir_one)
+                                    found_earlier = True
+
+                            if any(dir_two_data[filename][0][1] in subl for subl in dir_one_data[filename][1:]):
+                                # Two has been superseded, copy one to two
+                                copy_file_and_update(filename, dir_one, dir_two)
                                 found_earlier = True
 
-                        if any(dir_two_data[filename][0][1] in subl for subl in dir_one_data[filename][1:]):
-                            # Two has been superseded, copy one to two
-                            copy_file_and_update(filename, dir_one, dir_two)
-                            found_earlier = True
+                            # Completely unique digest found
+                            if not found_earlier:
+                                if is_older(dir_one_data[filename][0][0], dir_two_data[filename][0][0]) == -1:
+                                    copy_file_and_update(filename, dir_two, dir_one)
+                                else:
+                                    copy_file_and_update(filename, dir_one, dir_two)
 
-                        # Completely unique digest found
-                        if not found_earlier:
-                            if is_older(dir_one_data[filename][0][0], dir_two_data[filename][0][0]) == -1:
-                                copy_file_and_update(filename, dir_two, dir_one)
-                            else:
-                                copy_file_and_update(filename, dir_one, dir_two)
-
-                        # If modified time not the same
-                        if not dir_one_data[filename][0][0] == dir_two_data[filename][0][0]:
-                            if is_older(dir_one_data[filename][0][0], dir_two_data[filename][0][0]) == -1:
-                                copy_file_and_update(filename, dir_two, dir_one)
-                            else:
-                                copy_file_and_update(filename, dir_one, dir_two)
+                            # If modified time not the same
+                            if not dir_one_data[filename][0][0] == dir_two_data[filename][0][0]:
+                                if is_older(dir_one_data[filename][0][0], dir_two_data[filename][0][0]) == -1:
+                                    copy_file_and_update(filename, dir_two, dir_one)
+                                else:
+                                    copy_file_and_update(filename, dir_one, dir_two)
 
 def handle_missing_files(dir_one, dir_two):
     """Checks keys in sync file and makes sure other dir has that key if not deleted."""
     dir_one_data = get_data_from_sync_file(dir_one + "/.sync")
     dir_two_data = get_data_from_sync_file(dir_two + "/.sync")
 
-    # Go through keys in dir_one
-    for key in dir_one_data:
-        if not key in dir_two_data.keys() and not dir_one_data[key][0][1] == "deleted":
-            copy_file_and_update(key, dir_one, dir_two)
+    if dir_one_data is not None:
+        # Go through keys in dir_one
+        for key in dir_one_data:
+            if not key in dir_two_data.keys() and not dir_one_data[key][0][1] == "deleted":
+                copy_file_and_update(key, dir_one, dir_two)
 
-    # Go through keys in dir_two
-    for key in dir_two_data:
-        if not key in dir_one_data.keys() and not dir_two_data[key][0][1] == "deleted":
-            copy_file_and_update(key, dir_two, dir_one)
+    if dir_two_data is not None:
+        # Go through keys in dir_two
+        for key in dir_two_data:
+            if not key in dir_one_data.keys() and not dir_two_data[key][0][1] == "deleted":
+                copy_file_and_update(key, dir_two, dir_one)
 
 def copy_file_and_update(file_name, src_folder, dest_folder):
     full_file_name = os.path.join(src_folder, file_name)
@@ -173,12 +231,28 @@ def copy_file_and_update(file_name, src_folder, dest_folder):
     update_sync_file(dest_folder)
 
 def copy_and_update_sync(src_folder, dest_folder):
+    copy_folder(src_folder, dest_folder)
+    update_sync_file(dest_folder)
+
+def copy_folder(src_folder, dest_folder):
     src_files = os.listdir(src_folder)
     for file_name in src_files:
         full_file_name = os.path.join(src_folder, file_name)
         if os.path.isfile(full_file_name) and not file_name.startswith("."):
             shutil.copy2(full_file_name, dest_folder)
-    update_sync_file(dest_folder)
+
+def copy_folder_to_dest(sub_folder, src_folder, dest_folder):
+
+    # Make new directory
+    actual_dest = os.path.join(os.getcwd(), dest_folder, sub_folder)
+    if not os.path.isdir(actual_dest):
+        os.makedirs(actual_dest)
+
+    src_files = os.listdir(src_folder)
+    for file_name in src_files:
+        full_file_name = os.path.join(src_folder, file_name)
+        if os.path.isfile(full_file_name) and not file_name.startswith("."):
+            shutil.copy2(full_file_name, actual_dest)
 
 def update_sync_file(directory):
     """Scans a given directory for files and updates its sync file."""
@@ -287,7 +361,7 @@ def get_files_in_dir(directory):
     """Gets files, excluding dirs, inside a given directory as a list."""
     files = []
     for f in os.listdir(directory):
-        if not f.startswith('.'):
+        if not f.startswith('.') and os.path.isfile(os.path.join(directory, f)):
             files.append(f)
     return files
 
