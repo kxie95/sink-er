@@ -45,7 +45,7 @@ def sync_dirs(dir_one, dir_two):
     check_sync_files(dir_one, dir_two)
 
     # Merge directories
-    #merge_dirs(dir_one, dir_two)
+    merge_dirs(dir_one, dir_two)
 
 def check_sync_files(dir_one, dir_two):
     dir_one_data = get_data_from_sync_file(dir_one + "/.sync")
